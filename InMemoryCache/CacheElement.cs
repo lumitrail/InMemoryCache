@@ -1,102 +1,81 @@
 ﻿namespace InMemoryCache
 {
     /// <summary>
-    /// 캐시 오브젝트 공통 클래스
-    /// read, write 락, RU 카운터 내장
+    /// It's recommended to use immutable a reference type or a primitive type for T.
     /// </summary>
+    /// <typeparam name="T">reference type or a primitive type</typeparam>
     internal class CacheElement<T>
     {
-        /// <summary>set 때만 업데이트</summary>
-        public DateTime UpdatedTime { get; protected set; }
-        /// <summary>이 객체가 얼마나 오래 됐는지</summary>
-        public int Age { get; protected set; }
-        /// <summary>현재 writing 중인지</summary>
-        public bool Writing { get; protected set; }
-        /// <summary>read, write lock</summary>
-        private object _lock;
+        /// <summary>When this value is recently set. Used when determining whether this element is expired.</summary>
+        public DateTime LastSet { get; private set; }
+        /// <summary>Ordinal(not strictly) age of this element.</summary>
+        public uint Age { get; private set; }
 
         private T _data;
-        public T data
+        /// <summary>Getting and Setting changes other member values.</summary>
+        public T Data
         {
             get
             {
-                Accessed();
-                WaitWriting();
-                return this._data;
+                WaitForWriting();
+                lock (_memberWritingLock)
+                {
+                    Age = 0;
+                }
+                return _data;
             }
             set
             {
-                Updated();
-                AcquireWriting();
-                _data = value;
-                ReleaseWriting();
+                // Won't wait for reading
+                lock (_memberWritingLock)
+                {
+                    _isWriting = true;
+                    _data = value;
+                    _isWriting = false;
+                    
+                    Age = 0;
+                    LastSet = DateTime.Now;
+                }
             }
         }
 
+        private volatile bool _isWriting;
+        private readonly object _memberWritingLock;
 
-        public CacheElement()
-        {
-            this.Age = 0;
-            this.UpdatedTime = DateTime.MinValue;
-            this._lock = new object();
-            this.data = default(T);
-        }
 
-        public CacheElement(T data) : this()
+        public CacheElement(T data)
         {
-            this.data = data;
-        }
+            LastSet = DateTime.Now;
+            Age = 0;
 
-        protected void WaitWriting()
-        {
-            while (this.Writing)
-            {
-                //spin wait
-                //Thread.Sleep(1);
-            }
+            _data = data;
+
+            _isWriting = false;
+            _memberWritingLock = new object();
         }
 
-        protected void Accessed()
+
+        /// <summary>
+        /// Aging this element.
+        /// </summary>
+        /// <returns></returns>
+        public void MakeOlder()
         {
-            lock (this._lock)
+            lock (_memberWritingLock)
             {
-                this.Age = 0;
-            }
-        }
-        protected void Updated()
-        {
-            lock (this._lock)
-            {
-                this.Age = 0;
-                this.UpdatedTime = DateTime.Now;
-            }
-        }
-        protected void AcquireWriting()
-        {
-            WaitWriting();
-            lock (this._lock)
-            {
-                this.Writing = true;
-            }
-        }
-        protected void ReleaseWriting()
-        {
-            lock (this._lock)
-            {
-                this.Writing = false;
+                ++Age;
             }
         }
 
         /// <summary>
-        /// 얼마나 오랫동안 접근하지 않았는지 누적시킴
+        /// Lockless wait until _isWriting becomes false.
         /// </summary>
-        /// <returns></returns>
-        public int GetOlder()
+        private void WaitForWriting()
         {
-            lock (this._lock)
+            var spinner = new SpinWait();
+            while (_isWriting)
             {
-                this.Age += 1;
-                return this.Age;
+                spinner.SpinOnce();
             }
         }
     }

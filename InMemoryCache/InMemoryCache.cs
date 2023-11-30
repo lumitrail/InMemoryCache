@@ -1,253 +1,279 @@
 ﻿using System.Collections.Concurrent;
-using System.Data.SqlTypes;
+using System.Diagnostics.CodeAnalysis;
 
 namespace InMemoryCache
 {
     /// <summary>
-    /// thread-safe한 in memory cache<br></br>
-    /// 사용법: Exists(key)로 캐시 저장되어 있는지 먼저 보고<br></br>
-    /// inMemoryCache[key]로 get, set.<br></br>
-    /// thread-safe 하므로 static instance 하나 생성해서 사용하시면 됩니다.<br></br>
+    /// Thread-safe key-value cache.
     /// </summary>
     /// <typeparam name="TKey"></typeparam>
     /// <typeparam name="TValue"></typeparam>
-    /// <exception cref="ArgumentNullException">키 = null</exception>
-    /// <exception cref="KeyNotFoundException">캐시 존재하지 않을 때</exception>
-    /// <remarks>
-    /// 캐시 존재하지 않을 땐 exception을 던짐.<br></br>
-    /// exception은 성능에 해가 크므로 미리 Exists(key)로 확인 후 접근하는 것을 추천.
-    /// </remarks>
     public class InMemoryCache<TKey, TValue>
-        where TKey : notnull
+        where TKey: notnull
     {
-        public int cacheSize { get; private set; }
-        public TimeSpan cacheLifeTime { get; private set; }
+        /// <summary>128</summary>
+        public static readonly int DefaultCapacity = 128;
+        /// <summary>30 days</summary>
+        public static readonly TimeSpan DefaultElementLifeSpan = TimeSpan.FromDays(30);
 
-        private readonly ConcurrentDictionary<TKey, CacheElement<TValue>> cacheObjects;
+        /// <summary>Cap of the cache element count.</summary>
+        public int Capacity { get; private set; }
+        /// <summary>Defines when a cache element is evicted.</summary>
+        public TimeSpan ElementLifeSpan { get; private set; }
 
-        public TimeSpan _DEFAULT_CACHE_LIFETIME => TimeSpan.FromDays(30);
+        /// <summary>
+        /// Get and set using index
+        /// </summary>
+        /// <param name="key"></param>
+        /// <returns></returns>
+        /// <exception cref="KeyNotFoundException"></exception>
+        public TValue this[TKey key]
+        {
+            get
+            {
+                if (TryGetValue(key, out TValue? value))
+                {
+                    return value;
+                }
+                else
+                {
+                    throw new KeyNotFoundException();
+                }
+            }
+            set
+            {
+                CacheElement<TValue> newValue = new(value);
+                _cacheElements[key] = newValue;
+                Evict();
+            }
+        }
+
+        private readonly ConcurrentDictionary<TKey, CacheElement<TValue>> _cacheElements;
 
 
         #region Constructors
-        private InMemoryCache()
+        public InMemoryCache()
         {
-            this.cacheObjects = new();
-            this.cacheLifeTime = this._DEFAULT_CACHE_LIFETIME;
+            Capacity = DefaultCapacity;
+            ElementLifeSpan = DefaultElementLifeSpan;
+
+            _cacheElements = new ConcurrentDictionary<TKey, CacheElement<TValue>>();
         }
 
         /// <summary>
-        /// 캐시 내 객체 수가 cacheSize 미만의 크기로 유지됩니다.
+        /// Create a new InMemoryCache with capacity.
         /// </summary>
-        /// <param name="cacheSize"></param>
-        public InMemoryCache(int cacheSize) : this()
+        /// <param name="capacity"></param>
+        public InMemoryCache(int capacity)
+            : this()
         {
-            if (cacheSize > 0)
+            if (capacity > 0)
             {
-                this.cacheSize = cacheSize;
-            }
-            else
-            {
-                throw new ArgumentOutOfRangeException("cacheSize", "cache size must be positive.");
+                Capacity = capacity;
             }
         }
 
-
         /// <summary>
-        /// 캐시 내 객체 수가 cacheSize 미만의 크기로 유지됩니다.<br></br>
-        /// 캐시 내 객체가 생성되거나 수정(업데이트)된 지 cacheLifeTime만큼 지나면 삭제됩니다.
+        /// Create a new InMemoryCache with capacity and elementLifeSpan.
         /// </summary>
-        /// <param name="cacheSize"></param>
-        /// <param name="cacheLifeTime"></param>
-        public InMemoryCache(int cacheSize, TimeSpan cacheLifeTime) : this()
+        /// <param name="capacity"></param>
+        /// <param name="elementLifeSpan"></param>
+        public InMemoryCache(int capacity, TimeSpan elementLifeSpan)
+            : this(capacity)
         {
-            if (cacheSize > 0 && cacheLifeTime > TimeSpan.Zero)
+            if (elementLifeSpan > TimeSpan.Zero)
             {
-                this.cacheSize = cacheSize;
-                this.cacheLifeTime = cacheLifeTime;
-            }
-            else if (cacheLifeTime <= TimeSpan.Zero) // cache life time error
-            {
-                throw new ArgumentOutOfRangeException("cacheLifeTime", "cache life time must be positive.");
-            }
-            else if (cacheSize <= 0) // cache size error
-            {
-                throw new ArgumentOutOfRangeException("cacheSize", "cache size must be positive.");
-            }
-            else // both error
-            {
-                throw new ArgumentOutOfRangeException("cacheSize, cacheLifeTime", "cache size and cache life time must be positive.");
+                ElementLifeSpan = elementLifeSpan;
             }
         }
         #endregion
 
 
         /// <summary>
-        /// 캐시 내용 비우기
+        /// Removes all elements from this cache.
         /// </summary>
-        public void PurgeCache()
+        public void Clear()
         {
-            this.cacheObjects.Clear();
+            _cacheElements.Clear();
         }
 
+        /// <summary>
+        /// Gets current count of objects in this cache.
+        /// </summary>
+        /// <returns></returns>
+        public int Count()
+        {
+            Evict();
+            return _cacheElements.Count;
+        }
 
         /// <summary>
-        /// 캐시 크기 변경
+        /// Sets new capacity and evicts elements exceeding the capacity.
         /// </summary>
-        /// <param name="size">1 미만이면 변경이 무시됨</param>
-        public void SetCacheSize(int size)
+        /// <param name="newCapacity"></param>
+        public void SetCapacity(int newCapacity)
         {
-            if (size < 1
-                || this.cacheSize == size)
+            if (newCapacity > 0)
             {
-                return;
+                Capacity = newCapacity;
             }
             else
             {
-                this.cacheSize = size;
-                EvictCache();
+                Capacity = 1;
             }
+
+            Evict();
         }
 
         /// <summary>
-        /// 캐시 수명 변경
+        /// Sets new capacity and evicts expired elements.
         /// </summary>
-        /// <param name="minutes">1 미만이면 수명 사용안함</param>
-        public void SetCacheLifeTime(int minutes)
+        /// <param name="newLifeSpan"></param>
+        public void SetElementLifeSpan(TimeSpan newLifeSpan)
         {
-            TimeSpan parsedMinute = TimeSpan.FromMinutes(minutes);
+            if (newLifeSpan > TimeSpan.Zero)
+            {
+                ElementLifeSpan = newLifeSpan;
+            }
 
-            if (minutes < 1)
-            {
-                //this.useCacheLifeTime = false;
-                this.cacheLifeTime = TimeSpan.MaxValue;
-            }
-            else
-            {
-                //this.useCacheLifeTime = true;
-                this.cacheLifeTime = parsedMinute;
-                EvictCache();
-            }
+            Evict();
         }
 
-
         /// <summary>
-        /// 캐시에 key가 존재하는지 확인
+        /// Checks if this cache contains key and its value is not expired or evicted.
         /// </summary>
         /// <param name="key"></param>
         /// <returns></returns>
-        public bool Exists(TKey key)
+        public bool ContainsValidKey(TKey key)
         {
             try
             {
-                if (key != null)
-                {
-                    return this.cacheObjects.ContainsKey(key)
-                        && this.cacheObjects[key].age < this.cacheSize
-                        && (this.cacheObjects[key].updatedTime + this.cacheLifeTime) > DateTime.Now;
-                }
+                return _cacheElements.ContainsKey(key)
+                        && _cacheElements[key].Age < Capacity
+                        && (_cacheElements[key].LastSet + ElementLifeSpan) > DateTime.Now;
             }
-            catch
-            {
-            }
-            return false;
-        }
-
-        public bool TryRead(TKey key, out TValue outValue)
-        {
-            outValue = default(TValue);
-
-            if (key != null)
-            {
-                if (Exists(key))
-                {
-                    try
-                    {
-                        outValue = this.cacheObjects[key].data;
-                        // EvictCache();
-                        return true;
-                    }
-                    catch
-                    {
-                    }
-                }
-            }
-
-            return false;
-        }
-
-        public bool TryWrite(TKey key, TValue value)
-        {
-            try
-            {
-                this[key] = value;
-                return true;
-            }
-            catch
+            catch (KeyNotFoundException)
             {
                 return false;
             }
         }
 
-
         /// <summary>
-        /// [key]로 get, set
+        /// Tries to read cache with key.
         /// </summary>
         /// <param name="key"></param>
-        /// <returns></returns>
-        /// <exception cref="ArgumentNullException"></exception>
-        /// <exception cref="KeyNotFoundException"></exception>
-        /// <exception cref="OverflowException"></exception>
-        /// <exception cref="AggregateException"></exception>
-        public TValue this[TKey key]
+        /// <param name="value"></param>
+        /// <returns>true if get is successful, otherwise false.</returns>
+        public bool TryGetValue(TKey key, [MaybeNullWhen(false)] out TValue value)
         {
-            get
+            if (ContainsValidKey(key)
+                && _cacheElements.TryGetValue(key, out CacheElement<TValue>? cacheElement))
             {
-                TValue result;
-                if (TryRead(key, out result))
-                {
-                    // EvictCache();
-                    return result;
-                }
-                throw new KeyNotFoundException();
+                AgeElements();
+                value = cacheElement.Data;
+                return true;
             }
-            set
+            else
             {
-                CacheElement<TValue> newValue = new(value);
-                this.cacheObjects[key] = newValue;
-                EvictCache();
+                value = default;
+                return false;
             }
         }
 
-        private void EvictCache()
+        /// <summary>
+        /// Tries to write cache with key. Then eviction comes.
+        /// </summary>
+        /// <param name="key"></param>
+        /// <param name="value"></param>
+        /// <returns></returns>
+        public bool TrySetValue(TKey key, TValue value)
         {
-            //Parallel.ForEach(cacheObjects.Keys, key =>
-            foreach (TKey key in cacheObjects.Keys)
+            try
             {
-                try
-                {
-                    CacheElement<TValue> cacheObject;
-                    if (this.cacheObjects.TryGetValue(key, out cacheObject))
-                    {
-                        cacheObject.GetOlder();
+                AgeElements();
+                _cacheElements[key] = new CacheElement<TValue>(value);
+                Evict();
+                return true;
+            }
+            catch (ArgumentException)
+            {
+                return false;
+            }
+        }
 
-                        if (cacheObject.age > this.cacheSize)
-                        {
-                            this.cacheObjects.TryRemove(key, out cacheObject);
-                        }
-
-                        if (cacheObject.updatedTime + this.cacheLifeTime < DateTime.Now)
-                        {
-                            this.cacheObjects.TryRemove(key, out cacheObject);
-                        }
-                    }
-                }
-                catch
+        private void AgeElements()
+        {
+            int cacheElemCount = _cacheElements.Count;
+            if (cacheElemCount > 16384)
+            {
+                var parallelOptions = new ParallelOptions()
                 {
+                    MaxDegreeOfParallelism = cacheElemCount / 8192
+                };
+                Parallel.ForEach(_cacheElements.Keys, parallelOptions, Age);
+            }
+            else
+            {
+                foreach (TKey key in _cacheElements.Keys)
+                {
+                    Age(key);
                 }
             }
-            //);
+        }
 
-            return;
+        private void Age(TKey key)
+        {
+            try
+            {
+                if (_cacheElements.TryGetValue(key, out CacheElement<TValue>? value))
+                {
+                    value.MakeOlder();
+                }
+            }
+            catch { }
+        }
+
+        /// <summary>
+        /// Removes key-value pairs in this cache if the pairs are LRU out of capacity OR expired.
+        /// </summary>
+        private void Evict()
+        {
+            int cacheElemCount = _cacheElements.Count;
+            if (cacheElemCount > 16384)
+            {
+                var parallelOptions = new ParallelOptions()
+                {
+                    MaxDegreeOfParallelism = cacheElemCount / 8192
+                };
+                Parallel.ForEach(_cacheElements.Keys, parallelOptions, EvictWhenNeeded);
+            }
+            else
+            {
+                foreach (TKey key in _cacheElements.Keys)
+                {
+                    EvictWhenNeeded(key);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Evicts key-value pair when it's LRU out of capacity OR expired.
+        /// </summary>
+        /// <param name="key"></param>
+        private void EvictWhenNeeded(TKey key)
+        {
+            try
+            {
+                if (_cacheElements.TryGetValue(key, out CacheElement<TValue>? cacheElement))
+                {
+                    if (cacheElement.Age > Capacity
+                        || cacheElement.LastSet + ElementLifeSpan < DateTime.Now)
+                    {
+                        _cacheElements.TryRemove(key, out _);
+                    }
+                }
+            }
+            catch { }
         }
     }
 }
