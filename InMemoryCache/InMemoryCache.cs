@@ -1,6 +1,8 @@
 ﻿using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 
+using InMemoryCache.MachineShop;
+
 namespace InMemoryCache
 {
     /// <summary>
@@ -52,6 +54,9 @@ namespace InMemoryCache
 
 
         #region Constructors
+        /// <summary>
+        /// New InMemoryCache with DefaultCapacity and DefaultElementLifeSpan.
+        /// </summary>
         public InMemoryCache()
         {
             Capacity = DefaultCapacity;
@@ -61,7 +66,7 @@ namespace InMemoryCache
         }
 
         /// <summary>
-        /// Create a new InMemoryCache with capacity.
+        /// New InMemoryCache with capacity.
         /// </summary>
         /// <param name="capacity"></param>
         public InMemoryCache(int capacity)
@@ -74,7 +79,7 @@ namespace InMemoryCache
         }
 
         /// <summary>
-        /// Create a new InMemoryCache with capacity and elementLifeSpan.
+        /// New InMemoryCache with capacity and elementLifeSpan.
         /// </summary>
         /// <param name="capacity"></param>
         /// <param name="elementLifeSpan"></param>

@@ -1,10 +1,10 @@
 ﻿using System.Diagnostics;
 
-namespace InMemoryCache
+namespace InMemoryCache.TestingCodes
 {
     internal class SimpleTesting
     {
-        public static async Task RunTest()
+        public static async Task InMemoryCacheTest()
         {
             var intToIntCache = new InMemoryCache<int, int>();
             var intToIntCacheWithCapacity = new InMemoryCache<int, int>(16);
