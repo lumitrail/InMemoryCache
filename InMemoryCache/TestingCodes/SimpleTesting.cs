@@ -88,7 +88,7 @@ namespace InMemoryCache.TestingCodes
             Console.WriteLine("TEST DONE.");
         }
 
-        private static string GetReport<Tkey, TValue>(InMemoryCache<Tkey, TValue> cache)
+        private static string GetReport<Tkey, TValue>(InMemoryCache<Tkey, TValue> cache) where Tkey : notnull
         {
             return $@"{nameof(cache)}: capacity={cache.Capacity}, life span={cache.ElementLifeSpan.TotalSeconds}sec, count={cache.Count()}";
         }

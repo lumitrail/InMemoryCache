@@ -9,59 +9,65 @@ using System.Threading.Tasks;
 namespace InMemoryCache
 {
     public class ConcurrentSortedDictionary<Tkey, TValue>
-        : IDictionary<Tkey,TValue>, ICollection<KeyValuePair<Tkey, TValue>>, IEnumerable<KeyValuePair<Tkey, TValue>>, IEnumerable
-        where Tkey: notnull, IComparable, IComparable<Tkey>, IEquatable<Tkey>
+        : IDictionary<Tkey,TValue>, IDictionary
+        where Tkey: notnull
     {
-        private readonly SortedDictionary<Tkey, List<TValue>> _dictionary;
-
-        private volatile int _readingThreads;
-        private volatile bool _isWriting;
-        private readonly object _memberWritingLock;
-
         public TValue this[Tkey key]
         {
             get
             {
-                throw new NotImplementedException();
+                _lock.WaitForWriting();
+                _lock.EnterReading();
 
+                TValue result = 
+                throw new NotImplementedException();
+                
+                _lock.ExitReading();
             }
             set
             {
+                _lock.WaitForWriting();
+                _lock.EnterWriting();
+                _lock.WaitForReading();
+
                 throw new NotImplementedException();
+
+                _lock.ExitWriting();
             }
         }
 
+        private readonly SortedDictionary<Tkey, TValue> _dictionary;
+        private readonly ReadWriteLock _lock;
 
 
         public ConcurrentSortedDictionary()
         {
             _dictionary = new();
-            
-            _readingThreads = 0;
-            _isWriting = false;
-            _memberWritingLock = new object();
+            _lock = new ReadWriteLock();
         }
 
 
+        /// <summary>
+        /// Add if not present
+        /// </summary>
+        /// <param name="key"></param>
+        /// <param name="value"></param>
+        /// <exception cref="ArgumentNullException"></exception>
+        /// <exception cref="ArgumentException"></exception>
         public void Add(Tkey key, TValue value)
         {
-            throw new NotImplementedException();
+            _lock.WaitForWriting();
+            _lock.EnterWriting();
+            _lock.WaitForReading();
+
+            _dictionary.Add(key, value);
+
+            _lock.ExitWriting();
         }
 
-        ICollection<Tkey> Keys
-        {
-            get
-            {
-                var result = new Tkey[_dictionary.Count];
-                
-            }
-        }
-        ICollection<TValue> Values => _dictionary.Values;
+        public ICollection<Tkey> Keys => _dictionary.Keys;
+        public ICollection<TValue> Values => _dictionary.Values;
 
-        public void test()
-        {
-            int[] dda = Array.Empty<int>();
-        }
 
 
     }
