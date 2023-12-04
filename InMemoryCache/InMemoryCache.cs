@@ -149,7 +149,7 @@ namespace InMemoryCache
         /// </summary>
         /// <param name="key"></param>
         /// <returns></returns>
-        public bool ContainsValidKey(TKey key)
+        public bool ContainsKey(TKey key)
         {
             try
             {
@@ -171,7 +171,7 @@ namespace InMemoryCache
         /// <returns>true if get is successful, otherwise false.</returns>
         public bool TryGetValue(TKey key, [MaybeNullWhen(false)] out TValue value)
         {
-            if (ContainsValidKey(key)
+            if (ContainsKey(key)
                 && _cacheElements.TryGetValue(key, out CacheElement<TValue>? cacheElement))
             {
                 AgeElements();

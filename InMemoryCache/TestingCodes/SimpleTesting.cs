@@ -2,7 +2,7 @@
 
 namespace InMemoryCache.TestingCodes
 {
-    internal class SimpleTesting
+    public static class SimpleTesting
     {
         public static async Task InMemoryCacheTest()
         {
