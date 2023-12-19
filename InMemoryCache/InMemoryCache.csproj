@@ -4,6 +4,9 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <Title>InMemoryCache</Title>
+    <Authors>lumitrail</Authors>
+    <PackageProjectUrl>https://github.com/lumitrail/InMemoryCache</PackageProjectUrl>
   </PropertyGroup>
 
 </Project>
