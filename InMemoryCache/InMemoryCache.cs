@@ -1,8 +1,6 @@
 ﻿using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 
-using InMemoryCache.MachineShop;
-
 namespace InMemoryCache
 {
     /// <summary>

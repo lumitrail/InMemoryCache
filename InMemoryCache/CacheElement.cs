@@ -1,6 +1,6 @@
 ﻿using System.Collections.Concurrent;
 
-namespace InMemoryCache.MachineShop
+namespace InMemoryCache
 {
     /// <summary>
     /// Data wrapper for cache. Data access is locked only when writing.
