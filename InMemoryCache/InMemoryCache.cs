@@ -10,16 +10,17 @@ namespace InMemoryCache
     /// <typeparam name="TValue"></typeparam>
     public class InMemoryCache<TKey, TValue>
         where TKey: notnull
+        where TValue: notnull
     {
         /// <summary>128</summary>
-        public static readonly int DefaultCapacity = 128;
+        public static int DefaultCapacity => 128;
         /// <summary>30 days</summary>
-        public static readonly TimeSpan DefaultElementLifeSpan = TimeSpan.FromDays(30);
+        public static TimeSpan DefaultElementLifeSpan => TimeSpan.FromDays(30);
 
         /// <summary>Cap of the cache element count.</summary>
-        public int Capacity { get; private set; }
+        public int Capacity { get; private set; } = DefaultCapacity;
         /// <summary>Defines when a cache element is evicted.</summary>
-        public TimeSpan ElementLifeSpan { get; private set; }
+        public TimeSpan ElementLifeSpan { get; private set; } = DefaultElementLifeSpan;
 
         /// <summary>
         /// Get and set using index
@@ -42,13 +43,13 @@ namespace InMemoryCache
             }
             set
             {
-                CacheElement<TValue> newValue = new(value);
+                var newValue = new CacheElement<TValue>(value);
                 _cacheElements[key] = newValue;
                 Evict();
             }
         }
 
-        private readonly ConcurrentDictionary<TKey, CacheElement<TValue>> _cacheElements;
+        private readonly ConcurrentDictionary<TKey, CacheElement<TValue>> _cacheElements = new();
 
 
         #region Constructors
@@ -57,10 +58,6 @@ namespace InMemoryCache
         /// </summary>
         public InMemoryCache()
         {
-            Capacity = DefaultCapacity;
-            ElementLifeSpan = DefaultElementLifeSpan;
-
-            _cacheElements = new ConcurrentDictionary<TKey, CacheElement<TValue>>();
         }
 
         /// <summary>
@@ -167,13 +164,33 @@ namespace InMemoryCache
         /// <param name="key"></param>
         /// <param name="value"></param>
         /// <returns>true if get is successful, otherwise false.</returns>
-        public bool TryGetValue(TKey key, [MaybeNullWhen(false)] out TValue value)
+        public bool TryGetValue(TKey key, [NotNullWhen(true)] out TValue? value)
         {
             if (ContainsKey(key)
                 && _cacheElements.TryGetValue(key, out CacheElement<TValue>? cacheElement))
             {
                 AgeElements();
                 value = cacheElement.Data;
+                return true;
+            }
+            else
+            {
+                value = default;
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Tries to remove cache with key.
+        /// </summary>
+        /// <param name="key"></param>
+        /// <param name="value"></param>
+        /// <returns></returns>
+        public bool TryRemove(TKey key, [NotNullWhen(true)] out TValue? value)
+        {
+            if (_cacheElements.TryRemove(key, out CacheElement<TValue>? cached))
+            {
+                value = cached.Data;
                 return true;
             }
             else

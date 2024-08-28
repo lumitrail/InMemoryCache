@@ -7,6 +7,7 @@
     <Title>InMemoryCache</Title>
     <Authors>lumitrail</Authors>
     <PackageProjectUrl>https://github.com/lumitrail/InMemoryCache</PackageProjectUrl>
+    <Version>1.1</Version>
   </PropertyGroup>
 
 </Project>
