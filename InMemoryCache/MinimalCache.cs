@@ -217,7 +217,7 @@ namespace MinimalCache
         /// <param name="value"></param>
         /// <returns>True if cache doesn't exist in the end.</returns>
         /// <exception cref="ArgumentNullException"></exception>
-        public bool TryRemove(TKey key, out TValue? value)
+        public bool TryRemove(TKey key, [MaybeNull] out TValue value)
         {
             ArgumentNullException.ThrowIfNull(key, nameof(key));
 
