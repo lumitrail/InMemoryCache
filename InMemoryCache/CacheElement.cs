@@ -8,6 +8,7 @@ namespace MinimalCache
     /// <typeparam name="T"></typeparam>
     /// <remarks>It's recommended to use immutable reference type or value type for T.</remarks>
     internal class CacheElement<T>
+        where T: notnull
     {
         private T _data;
 
@@ -34,26 +35,20 @@ namespace MinimalCache
         }
 
         /// <summary>When this value is recently set. Used when determining whether this element is expired.</summary>
-        public DateTime LastSet { get; private set; }
-        private uint _age;
+        public DateTime LastSet { get; private set; } = DateTime.Now;
+        private uint _age = 0;
         /// <summary>Ordinal(not strictly) age of this element.</summary>
         public uint Age => _age;
 
         /// <summary>For lock-free waiting.</summary>
-        private volatile bool _isWriting;
+        private volatile bool _isWriting = false;
         /// <summary>_data is locked when writing.</summary>
-        private readonly object _dataWritingLock;
+        private readonly object _dataWritingLock = new object();
 
 
         public CacheElement(T data)
         {
             _data = data;
-
-            LastSet = DateTime.Now;
-            _age = 0;
-
-            _isWriting = false;
-            _dataWritingLock = new object();
         }
 
 

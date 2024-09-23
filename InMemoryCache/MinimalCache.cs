@@ -10,16 +10,17 @@ namespace MinimalCache
     /// <typeparam name="TValue"></typeparam>
     public class MinimalCache<TKey, TValue>
         where TKey: notnull
+        where TValue: notnull
     {
         /// <summary>128</summary>
-        public static readonly int DefaultCapacity = 128;
+        public static int DefaultCapacity => 128;
         /// <summary>30 days</summary>
-        public static readonly TimeSpan DefaultElementLifeSpan = TimeSpan.FromDays(30);
+        public static TimeSpan DefaultElementLifeSpan => TimeSpan.FromDays(30);
 
         /// <summary>Cap of the cache element count.</summary>
-        public int Capacity { get; private set; }
+        public int Capacity { get; private set; } = DefaultCapacity;
         /// <summary>Defines when a cache element is evicted.</summary>
-        public TimeSpan ElementLifeSpan { get; private set; }
+        public TimeSpan ElementLifeSpan { get; private set; } = DefaultElementLifeSpan;
 
         /// <summary>
         /// Get and set using index
@@ -42,13 +43,13 @@ namespace MinimalCache
             }
             set
             {
-                CacheElement<TValue> newValue = new(value);
+                var newValue = new CacheElement<TValue>(value);
                 _cacheElements[key] = newValue;
                 Evict();
             }
         }
 
-        private readonly ConcurrentDictionary<TKey, CacheElement<TValue>> _cacheElements;
+        private readonly ConcurrentDictionary<TKey, CacheElement<TValue>> _cacheElements = new();
 
 
         #region Constructors
@@ -57,10 +58,6 @@ namespace MinimalCache
         /// </summary>
         public MinimalCache()
         {
-            Capacity = DefaultCapacity;
-            ElementLifeSpan = DefaultElementLifeSpan;
-
-            _cacheElements = new ConcurrentDictionary<TKey, CacheElement<TValue>>();
         }
 
         /// <summary>
