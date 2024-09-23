@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.8.34316.72
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "InMemoryCache", "InMemoryCache\InMemoryCache.csproj", "{E4575779-BFCA-4A97-AAE8-AC6CC984A732}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MinimalCache", "InMemoryCache\MinimalCache.csproj", "{E4575779-BFCA-4A97-AAE8-AC6CC984A732}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

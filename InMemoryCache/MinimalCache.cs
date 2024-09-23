@@ -1,14 +1,14 @@
 ﻿using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 
-namespace InMemoryCache
+namespace MinimalCache
 {
     /// <summary>
     /// Thread-safe key-value cache.
     /// </summary>
     /// <typeparam name="TKey"></typeparam>
     /// <typeparam name="TValue"></typeparam>
-    public class InMemoryCache<TKey, TValue>
+    public class MinimalCache<TKey, TValue>
         where TKey: notnull
     {
         /// <summary>128</summary>
@@ -55,7 +55,7 @@ namespace InMemoryCache
         /// <summary>
         /// New InMemoryCache with DefaultCapacity and DefaultElementLifeSpan.
         /// </summary>
-        public InMemoryCache()
+        public MinimalCache()
         {
             Capacity = DefaultCapacity;
             ElementLifeSpan = DefaultElementLifeSpan;
@@ -67,7 +67,7 @@ namespace InMemoryCache
         /// New InMemoryCache with capacity.
         /// </summary>
         /// <param name="capacity"></param>
-        public InMemoryCache(int capacity)
+        public MinimalCache(int capacity)
             : this()
         {
             if (capacity > 0)
@@ -81,7 +81,7 @@ namespace InMemoryCache
         /// </summary>
         /// <param name="capacity"></param>
         /// <param name="elementLifeSpan"></param>
-        public InMemoryCache(int capacity, TimeSpan elementLifeSpan)
+        public MinimalCache(int capacity, TimeSpan elementLifeSpan)
             : this(capacity)
         {
             if (elementLifeSpan > TimeSpan.Zero)
@@ -147,8 +147,11 @@ namespace InMemoryCache
         /// </summary>
         /// <param name="key"></param>
         /// <returns></returns>
+        /// <exception cref="ArgumentNullException"></exception>
         public bool ContainsKey(TKey key)
         {
+            ArgumentNullException.ThrowIfNull(key, nameof(key));
+
             try
             {
                 return _cacheElements.ContainsKey(key)
@@ -167,8 +170,11 @@ namespace InMemoryCache
         /// <param name="key"></param>
         /// <param name="value"></param>
         /// <returns>true if get is successful, otherwise false.</returns>
+        /// <exception cref="ArgumentNullException"></exception>
         public bool TryGetValue(TKey key, [MaybeNullWhen(false)] out TValue value)
         {
+            ArgumentNullException.ThrowIfNull(key, nameof(key));
+
             if (ContainsKey(key)
                 && _cacheElements.TryGetValue(key, out CacheElement<TValue>? cacheElement))
             {
@@ -189,8 +195,11 @@ namespace InMemoryCache
         /// <param name="key"></param>
         /// <param name="value"></param>
         /// <returns></returns>
+        /// <exception cref="ArgumentNullException"></exception>
         public bool TrySetValue(TKey key, TValue value)
         {
+            ArgumentNullException.ThrowIfNull(key, nameof(key));
+
             try
             {
                 AgeElements();
@@ -198,10 +207,33 @@ namespace InMemoryCache
                 Evict();
                 return true;
             }
-            catch (ArgumentException)
+            catch (ArgumentException) // why?
             {
                 return false;
             }
+        }
+
+        /// <summary>
+        /// Tries to remove cache elem with key.
+        /// </summary>
+        /// <param name="key"></param>
+        /// <param name="value"></param>
+        /// <returns>True if cache doesn't exist in the end.</returns>
+        /// <exception cref="ArgumentNullException"></exception>
+        public bool TryRemove(TKey key, out TValue? value)
+        {
+            ArgumentNullException.ThrowIfNull(key, nameof(key));
+
+            value = default;
+
+            _cacheElements.TryRemove(key, out CacheElement<TValue>? cached);
+
+            if (cached != null)
+            {
+                value = cached.Data;
+            }
+
+            return !_cacheElements.ContainsKey(key);
         }
 
         private void AgeElements()

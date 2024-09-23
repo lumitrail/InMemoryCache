@@ -7,6 +7,12 @@
     <Title>InMemoryCache</Title>
     <Authors>lumitrail</Authors>
     <PackageProjectUrl>https://github.com/lumitrail/InMemoryCache</PackageProjectUrl>
+    <PackageTags>C#;.NET8</PackageTags>
+    <RepositoryUrl>https://github.com/lumitrail/InMemoryCache</RepositoryUrl>
+    <Company>lumitrail</Company>
+    <AssemblyName>MinimalCache</AssemblyName>
+    <RootNamespace>MinimalCache</RootNamespace>
+    <Version>1.0.1</Version>
   </PropertyGroup>
 
 </Project>
